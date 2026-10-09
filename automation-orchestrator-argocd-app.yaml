@@ -1,15 +1,30 @@
 ---
 # ArgoCD Application for Automation Orchestrator POC/Demo
-# Deploys to dedicated ao-demo namespace
+# Deploys complete stack: PostgreSQL + Automation Orchestrator to ao-demo namespace
 #
-# Prerequisites:
-# 1. Grant ArgoCD permissions to the namespace:
+# PREREQUISITES (MUST RUN BEFORE APPLYING):
+# 1. Grant ArgoCD admin permissions to target namespace:
 #    oc adm policy add-role-to-user admin \
 #      system:serviceaccount:openshift-gitops:openshift-gitops-argocd-application-controller \
 #      -n ao-demo
 #
-# 2. Apply this application:
+#    Note: This is required because ArgoCD needs to create Secrets, Services,
+#    StatefulSets, Jobs, and the AutomationOrchestrator CR in the namespace.
+#
+# DEPLOYMENT:
+# 2. Apply this application (automated sync will deploy everything):
 #    oc apply -f automation-orchestrator-argocd-app.yaml
+#
+# 3. Monitor deployment:
+#    oc get application automation-orchestrator-demo -n openshift-gitops
+#    oc get pods -n ao-demo
+#
+# CREDENTIALS:
+# - PostgreSQL password: RedHat123 (POC/Lab only - change for production!)
+# - Admin password: Check secret automation-orchestrator-initial-admin-password
+#
+# ACCESS:
+# - UI Route: oc get route automation-orchestrator -n ao-demo
 
 apiVersion: argoproj.io/v1alpha1
 kind: Application
