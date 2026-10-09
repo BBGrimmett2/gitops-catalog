@@ -28,7 +28,7 @@ oc auth can-i create secrets \
 
 ```bash
 # Deploy Automation Orchestrator with PostgreSQL
-oc apply -f https://raw.githubusercontent.com/BBGrimmett2/gitops-catalog/automation-orchestrator/automation-orchestrator-argocd-app.yaml
+oc apply -f https://raw.githubusercontent.com/BBGrimmett2/gitops-catalog/automation-orchestrator/automation-orchestrator/application.yaml
 ```
 
 ArgoCD will automatically:
