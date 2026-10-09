@@ -1,0 +1,64 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postgresql-init-databases
+  labels:
+    app: postgresql-init
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: postgresql-init
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+      - name: wait-for-postgresql
+        image: registry.redhat.io/rhel9/postgresql-15:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Waiting for PostgreSQL to be ready..."
+          until pg_isready -h postgresql -U postgres; do
+            echo "PostgreSQL is unavailable - sleeping"
+            sleep 2
+          done
+          echo "PostgreSQL is ready!"
+        env:
+        - name: PGPASSWORD
+          valueFrom:
+            configMapKeyRef:
+              name: postgresql-env
+              key: POSTGRESQL_PASSWORD
+      containers:
+      - name: init-databases
+        image: registry.redhat.io/rhel9/postgresql-15:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Initializing Automation Orchestrator databases..."
+          psql -h postgresql -U postgres -f /scripts/init-databases.sql
+          if [ $? -eq 0 ]; then
+            echo "Database initialization completed successfully"
+          else
+            echo "Database initialization failed"
+            exit 1
+          fi
+        env:
+        - name: PGPASSWORD
+          valueFrom:
+            configMapKeyRef:
+              name: postgresql-env
+              key: POSTGRESQL_PASSWORD
+        volumeMounts:
+        - name: init-sql
+          mountPath: /scripts
+          readOnly: true
+      volumes:
+      - name: init-sql
+        configMap:
+          name: postgresql-init-sql

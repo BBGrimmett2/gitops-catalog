@@ -1,0 +1,16 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: automation-orchestrator
+
+# This overlay includes both PostgreSQL and the Automation Orchestrator instance
+# for a complete deployment in a single namespace
+
+resources:
+  - ../../base
+  - ../../../postgresql/overlays/default
+  # POC/Lab placeholder secrets (password: RedHat123)
+  # WARNING FOR PRODUCTION: Delete these and use ../../../scripts/generate-secrets.sh
+  - secrets/orchestrator-pg-credentials.yaml
+  - secrets/temporal-pg-credentials.yaml

@@ -1,0 +1,11 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgresql-env
+data:
+  POSTGRESQL_USER: "postgres"
+  POSTGRESQL_PASSWORD: "changeme"
+  POSTGRESQL_DATABASE: "postgres"
+  POSTGRESQL_MAX_CONNECTIONS: "200"
+  POSTGRESQL_SHARED_BUFFERS: "256MB"

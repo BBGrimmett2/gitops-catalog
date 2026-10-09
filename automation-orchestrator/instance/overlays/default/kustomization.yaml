@@ -1,0 +1,13 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: automation-orchestrator
+
+resources:
+  - ../../base
+  - namespace.yaml
+  # POC/Lab placeholder secrets (password: RedHat123)
+  # WARNING FOR PRODUCTION: Delete these and use ../../../scripts/generate-secrets.sh
+  - secrets/orchestrator-pg-credentials.yaml
+  - secrets/temporal-pg-credentials.yaml

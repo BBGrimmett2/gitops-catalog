@@ -1,0 +1,279 @@
+---
+# Example ArgoCD Applications for Automation Orchestrator
+# These examples show different deployment patterns using ArgoCD
+
+# Example 1: Operator Only
+# Deploy just the operator and let another Application handle the instance
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: automation-orchestrator-operator
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/redhat-cop/gitops-catalog.git
+    targetRevision: main
+    path: automation-orchestrator/operator/overlays/default
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+# Example 2: PostgreSQL Only
+# Deploy PostgreSQL separately from the instance
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: automation-orchestrator-postgresql
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/redhat-cop/gitops-catalog.git
+    targetRevision: main
+    path: automation-orchestrator/postgresql/overlays/default
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: false  # Don't auto-prune database
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        maxDuration: 5m
+
+# Example 3: Instance with Bundled PostgreSQL (Complete Stack)
+# This deploys everything: operator, PostgreSQL, and instance
+# Note: Secrets must be created separately (not in git)
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: automation-orchestrator-complete
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/YOUR-FORK/gitops-catalog.git  # Must be YOUR fork with secrets
+    targetRevision: main
+    path: automation-orchestrator/instance/overlays/with-postgres
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: automation-orchestrator
+  syncPolicy:
+    automated:
+      prune: false  # Protect database from accidental deletion
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  # Ignore differences in auto-generated fields
+  ignoreDifferences:
+    - group: apps
+      kind: StatefulSet
+      jsonPointers:
+        - /spec/volumeClaimTemplates/0/status
+
+# Example 4: Instance Only (External PostgreSQL)
+# Assumes PostgreSQL is managed externally
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: automation-orchestrator-instance
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/YOUR-FORK/gitops-catalog.git  # Your fork with secrets
+    targetRevision: main
+    path: automation-orchestrator/instance/overlays/default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: automation-orchestrator
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        maxDuration: 3m
+
+# Example 5: Multi-Environment with Sync Waves
+# Deploy operator, wait for it to be ready, then deploy instance
+# Uses ArgoCD App-of-Apps pattern
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: automation-orchestrator-production
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: production
+  source:
+    repoURL: https://git.example.com/gitops/automation-orchestrator.git
+    targetRevision: production
+    path: manifests
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+
+# Example 6: Custom Storage Class
+# Uses the custom-storage overlay for production SSD storage
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: automation-orchestrator-postgres-prod
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/redhat-cop/gitops-catalog.git
+    targetRevision: main
+    path: automation-orchestrator/postgresql/overlays/custom-storage
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+
+# Example 7: Using Kustomize with Remote Base
+# Build locally with additional customizations
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: automation-orchestrator-custom
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://git.example.com/my-automation-orchestrator.git
+    targetRevision: main
+    path: overlays/production
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+
+# Example 8: Health Checks and Sync Options
+# Advanced sync configuration with custom health checks
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: automation-orchestrator-advanced
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/YOUR-FORK/gitops-catalog.git
+    targetRevision: main
+    path: automation-orchestrator/instance/overlays/with-postgres
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: automation-orchestrator
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true  # Delete resources last
+      - RespectIgnoreDifferences=true
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  # Custom health assessment
+  ignoreDifferences:
+    - group: aap.ansible.com
+      kind: AutomationOrchestrator
+      jsonPointers:
+        - /status
+  # Wait for specific conditions
+  syncPolicy:
+    syncOptions:
+      - SkipDryRunOnMissingResource=true
+
+---
+# Notes on Using These Examples:
+#
+# 1. SECRET MANAGEMENT:
+#    - Database secrets are gitignored and must be created separately
+#    - Options:
+#      a) Create secrets manually in the cluster before syncing
+#      b) Use Sealed Secrets: https://github.com/bitnami-labs/sealed-secrets
+#      c) Use External Secrets Operator: https://external-secrets.io/
+#      d) Use Vault Plugin: https://argocd-vault-plugin.readthedocs.io/
+#
+# 2. FORKING THE REPO:
+#    - Fork redhat-cop/gitops-catalog to your own Git repo
+#    - Add your secrets to overlays (gitignored locally)
+#    - Reference your fork in ArgoCD Applications
+#    - Keep your fork synced with upstream for updates
+#
+# 3. SYNC WAVES:
+#    - These examples respect the built-in sync waves in the manifests
+#    - Wave 1: Namespace, PostgreSQL, Secrets
+#    - Wave 2: Operator, PostgreSQL init Job
+#    - Wave 3: AutomationOrchestrator CR
+#    - ArgoCD automatically respects these annotations
+#
+# 4. AUTOMATED SYNC:
+#    - Use automated sync for operator (safe to auto-update)
+#    - Consider manual sync for instance in production
+#    - Never auto-prune databases (prune: false)
+#
+# 5. MULTI-CLUSTER:
+#    - Change destination.server to your cluster's API URL
+#    - Or use cluster name if registered with ArgoCD
+#
+# 6. PROJECTS:
+#    - Use ArgoCD Projects for RBAC and resource restrictions
+#    - Example: production project with stricter policies

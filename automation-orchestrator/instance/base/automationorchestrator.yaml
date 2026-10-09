@@ -1,0 +1,145 @@
+---
+# AutomationOrchestrator Custom Resource for POC/Lab deployments
+# For production, customize resource limits, replicas, and storage options
+apiVersion: aap.ansible.com/v1alpha1
+kind: AutomationOrchestrator
+metadata:
+  name: automation-orchestrator
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  # PostgreSQL configuration
+  postgres:
+    host: "postgresql"
+    port: 5432
+    sslMode: "prefer"
+    # Backend database secret reference
+    backendDatabase:
+      secretRef:
+        name: "orchestrator-pg-credentials"
+    # Temporal database secret reference
+    temporalDatabase:
+      secretRef:
+        name: "temporal-pg-credentials"
+
+  # Redis configuration (optional - operator creates if not specified)
+  # Uncomment to use external Redis
+  # redis:
+  #   host: "redis.automation-orchestrator.svc.cluster.local"
+  #   port: 6379
+  #   secret: "redis-password"
+
+  # Image pull policy
+  image_pull_policy: IfNotPresent
+
+  # Service type for the API
+  service_type: ClusterIP
+
+  # Ingress configuration
+  # Route is automatically created on OpenShift
+  ingress_type: Route
+
+  # API server configuration
+  api:
+    replicas: 1
+    log_level: INFO
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "2"
+        memory: "4Gi"
+
+  # Worker configuration
+  worker:
+    replicas: 1
+    log_level: INFO
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "2"
+        memory: "4Gi"
+
+  # UI configuration
+  ui:
+    replicas: 1
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+      limits:
+        cpu: "500m"
+        memory: "512Mi"
+
+  # Temporal server configuration
+  temporal_server:
+    replicas: 1
+    log_level: INFO
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "2"
+        memory: "4Gi"
+
+  # Optional: File storage configuration (S3-compatible)
+  # Uncomment and configure for production use
+  # file_storage:
+  #   type: s3
+  #   s3:
+  #     endpoint: "https://s3.amazonaws.com"
+  #     bucket: "automation-orchestrator"
+  #     region: "us-east-1"
+  #     credentialSecretRef: "s3-credentials"
+
+  # Optional: Custom TLS certificates
+  # By default, operator generates self-signed certificates
+  # Uncomment to use your own CA
+  # tls:
+  #   ca_secret: "automation-orchestrator-ca"
+
+  # Optional: LDAP/SAML authentication
+  # Configure after initial deployment
+  # auth:
+  #   type: ldap
+  #   ldap:
+  #     server: "ldap://ldap.example.com:389"
+  #     bindDN: "cn=admin,dc=example,dc=com"
+  #     bindPasswordSecret: "ldap-bind-password"
+  #     userSearch:
+  #       baseDN: "ou=users,dc=example,dc=com"
+  #       filter: "(uid={0})"
+
+  # Node selector for pod placement (optional)
+  # node_selector:
+  #   disktype: ssd
+
+  # Tolerations (optional)
+  # tolerations:
+  #   - key: "dedicated"
+  #     operator: "Equal"
+  #     value: "automation-orchestrator"
+  #     effect: "NoSchedule"
+
+  # Security context (optional)
+  # security_context:
+  #   fsGroup: 1000
+  #   runAsUser: 1000
+
+  # Environment variables (optional)
+  # extra_env:
+  #   - name: DEBUG
+  #     value: "false"
+
+  # Optional: Configure initial admin password
+  # If not set, operator generates a random password
+  # admin_password_secret: "automation-orchestrator-admin-password"
+
+  # Optional: Enable metrics collection
+  # metrics:
+  #   enabled: true
+  #   serviceMonitor: true
