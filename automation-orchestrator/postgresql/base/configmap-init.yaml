@@ -26,6 +26,10 @@ data:
     \c orchestrator
     CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
+    -- Transfer extension ownership to orchestrator user
+    -- Required so orchestrator can run migrations that modify the extension
+    ALTER EXTENSION pgcrypto OWNER TO orchestrator;
+
     -- Verify setup
     \echo 'Verifying database creation...'
     \l orchestrator
