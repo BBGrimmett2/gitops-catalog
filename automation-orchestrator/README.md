@@ -1,186 +1,179 @@
 # Automation Orchestrator for Ansible Automation Platform
 
-This directory provides Kustomize-based manifests for deploying Red Hat Ansible Automation Platform's **Automation Orchestrator** on OpenShift using GitOps principles.
+One-command deployment of Ansible Automation Platform's Automation Orchestrator using ArgoCD.
 
-## Overview
+## Quick Start
 
-Automation Orchestrator enables event-driven automation capabilities within Ansible Automation Platform. This GitOps Catalog entry provides a modular deployment structure that follows Red Hat CoP best practices.
+### Prerequisites
 
-## Directory Structure
-
-```
-automation-orchestrator/
-├── operator/          Install the Automation Orchestrator operator via OLM
-├── postgresql/        Deploy PostgreSQL databases required by Automation Orchestrator
-├── instance/          Deploy an Automation Orchestrator instance
-├── scripts/           Helper utilities for manifest and secret generation
-└── docs/              Additional documentation and examples
-```
-
-## POC/Lab Quick Start (2 Commands)
-
-**For POC, Lab, or Demo environments - deploys in under 5 minutes with placeholder passwords:**
+**1. Grant ArgoCD permissions (required once per namespace):**
 
 ```bash
-# 1. Install operator
-oc apply -k https://github.com/redhat-cop/gitops-catalog/automation-orchestrator/operator/overlays/default?ref=main
-
-# 2. Clone repo and deploy (includes PostgreSQL with placeholder secrets)
-git clone https://github.com/redhat-cop/gitops-catalog.git
-cd gitops-catalog/automation-orchestrator
-./scripts/generate-ao-manifests.sh
-oc apply -k instance/overlays/with-postgres
+# Replace 'ao-demo' with your desired namespace
+oc adm policy add-role-to-user admin \
+  system:serviceaccount:openshift-gitops:openshift-gitops-argocd-application-controller \
+  -n ao-demo
 ```
 
-**Credentials**: Database password is `RedHat123` - See [docs/QUICKSTART-POC.md](docs/QUICKSTART-POC.md) for details.
-
-**WARNING: This uses placeholder passwords. For production, see the Production Quick Start below.**
-
----
-
-## Production Quick Start
-
-### 1. Install the Operator
+**2. Verify permissions:**
 
 ```bash
-# Local installation
-oc apply -k automation-orchestrator/operator/overlays/default
-
-# Or using remote kustomize reference
-oc apply -k github.com/redhat-cop/gitops-catalog/automation-orchestrator/operator/overlays/default?ref=main
+# Should return "yes"
+oc auth can-i create secrets \
+  --as=system:serviceaccount:openshift-gitops:openshift-gitops-argocd-application-controller \
+  -n ao-demo
 ```
 
-### 2. Deploy PostgreSQL (Optional)
-
-If you don't have an external PostgreSQL instance:
+### Deploy
 
 ```bash
-oc apply -k automation-orchestrator/postgresql/overlays/default
+# Deploy Automation Orchestrator with PostgreSQL
+oc apply -f https://raw.githubusercontent.com/BBGrimmett2/gitops-catalog/automation-orchestrator/automation-orchestrator-argocd-app.yaml
 ```
 
-Or with custom storage:
+**That's it!** ArgoCD will automatically:
+1. Create the namespace
+2. Deploy PostgreSQL 15 with 3 databases
+3. Install the Automation Orchestrator operator
+4. Deploy all Automation Orchestrator components
+5. Create routes for UI access
+
+### Monitor Deployment
 
 ```bash
-# Edit postgresql/overlays/custom-storage/pvc-patch.yaml first
-oc apply -k automation-orchestrator/postgresql/overlays/custom-storage
+# Watch deployment progress
+oc get pods -n ao-demo -w
+
+# Check overall status (wait for READY=True)
+oc get automationorchestrator automation-orchestrator -n ao-demo
 ```
 
-### 3. Generate Secrets and Deploy Instance
+### Access
 
 ```bash
-cd automation-orchestrator
+# Get UI URL
+oc get route automation-orchestrator -n ao-demo
 
-# Generate database credential secrets
-./scripts/generate-secrets.sh default
-
-# Generate AutomationOrchestrator custom resource using aapctl
-./scripts/generate-ao-manifests.sh
-
-# Deploy the instance
-oc apply -k instance/overlays/default
+# Get admin password
+oc get secret automation-orchestrator-initial-admin-password -n ao-demo \
+  -o jsonpath='{.data.password}' | base64 -d && echo
 ```
 
-Or deploy instance with bundled PostgreSQL:
+## What Gets Deployed
+
+**All components deploy to a single namespace (default: `ao-demo`):**
+
+- PostgreSQL 15 (3 databases: orchestrator, temporal, temporal_visibility)
+- Automation Orchestrator Operator
+- Automation Orchestrator components:
+  - Backend API (2 replicas)
+  - Background Worker
+  - Worker  
+  - UI
+  - Temporal Server
+  - Redis Cache
+
+**Resources:** ~8 pods, 1 route, 2-3 GB memory, 1-2 CPU cores
+
+## Default Credentials (POC/Demo)
+
+**PostgreSQL:**
+- Password: `RedHat123`
+
+**Admin User:**
+- Password: See secret `automation-orchestrator-initial-admin-password`
+
+**⚠️ WARNING:** These are placeholder credentials for POC/demo only. For production, update secrets before deploying.
+
+## Custom Namespace
+
+To deploy to a different namespace:
+
+1. **Edit the ArgoCD application:**
+   ```bash
+   # Download and edit
+   curl -o ao-app.yaml https://raw.githubusercontent.com/BBGrimmett2/gitops-catalog/automation-orchestrator/automation-orchestrator-argocd-app.yaml
+   
+   # Change destination.namespace from 'ao-demo' to your namespace
+   sed -i 's/namespace: ao-demo/namespace: my-namespace/g' ao-app.yaml
+   ```
+
+2. **Grant RBAC to your namespace:**
+   ```bash
+   oc adm policy add-role-to-user admin \
+     system:serviceaccount:openshift-gitops:openshift-gitops-argocd-application-controller \
+     -n my-namespace
+   ```
+
+3. **Apply:**
+   ```bash
+   oc apply -f ao-app.yaml
+   ```
+
+## Troubleshooting
+
+### Permission Denied
+
+**Error:** `secrets is forbidden` or `services is forbidden`
+
+**Fix:** Grant RBAC permissions (see Prerequisites above)
 
 ```bash
-./scripts/generate-secrets.sh with-postgres
-./scripts/generate-ao-manifests.sh
-oc apply -k instance/overlays/with-postgres
+oc adm policy add-role-to-user admin \
+  system:serviceaccount:openshift-gitops:openshift-gitops-argocd-application-controller \
+  -n ao-demo
 ```
 
-## Prerequisites
+### Deployment Stuck
 
-- OpenShift 4.12+ or Kubernetes 1.25+
-- ArgoCD (for GitOps deployment)
-- `kustomize` CLI tool
-- `aapctl` CLI (for generating instance manifests)
-- Valid Red Hat subscription with access to Automation Orchestrator operator
+**Check ArgoCD sync status:**
+```bash
+oc get application automation-orchestrator-demo -n openshift-gitops
+```
 
-## Components
+**Check for errors:**
+```bash
+# ArgoCD logs
+oc logs -n openshift-gitops -l app.kubernetes.io/name=argocd-application-controller --tail=50
 
-### Operator (`operator/`)
-Installs the Automation Orchestrator operator using OpenShift's Operator Lifecycle Manager (OLM).
+# PostgreSQL init logs
+oc logs -l job-name=postgresql-init-databases -n ao-demo
 
-**Overlays:**
-- `default` - Standard operator installation
+# Backend migration logs  
+oc logs -l app.kubernetes.io/component=backend-migration -n ao-demo
+```
 
-**Learn more:** [operator/README.md](operator/README.md)
-
-### PostgreSQL (`postgresql/`)
-Deploys PostgreSQL with the three databases required by Automation Orchestrator:
-- `orchestrator` - Main backend database
-- `temporal` - Temporal workflow engine database
-- `temporal_visibility` - Temporal visibility store
-
-**Overlays:**
-- `default` - Default storage class, 10Gi
-- `custom-storage` - Customizable storage class and size
-
-**Learn more:** [postgresql/README.md](postgresql/README.md)
-
-### Instance (`instance/`)
-Deploys an Automation Orchestrator instance (custom resource).
-
-**Overlays:**
-- `default` - Instance only (requires external PostgreSQL)
-- `with-postgres` - Complete stack with bundled PostgreSQL
-
-**Learn more:** [instance/README.md](instance/README.md)
-
-## Helper Scripts
-
-### `scripts/generate-ao-manifests.sh`
-Generates the AutomationOrchestrator custom resource using `aapctl`.
+### Clean Uninstall
 
 ```bash
-./scripts/generate-ao-manifests.sh [aapctl args]
+# Delete ArgoCD application (will remove all resources)
+oc delete application automation-orchestrator-demo -n openshift-gitops
+
+# Delete namespace
+oc delete namespace ao-demo
 ```
 
-### `scripts/generate-secrets.sh`
-Creates database credential secrets from templates with generated passwords.
+## Production Deployment
 
-```bash
-./scripts/generate-secrets.sh [overlay-name]
-```
+For production use:
 
-### `scripts/validate-manifests.sh`
-Validates YAML syntax and kustomize builds.
+1. **Update secrets** before deploying:
+   - Generate strong passwords (32+ characters)
+   - Use Vault, Sealed Secrets, or external secret management
+   - Enable PostgreSQL SSL
 
-```bash
-./scripts/validate-manifests.sh
-```
+2. **Customize resources:**
+   - Fork this repository
+   - Edit `automation-orchestrator/instance/overlays/argocd-demo/`
+   - Update AutomationOrchestrator CR with production values
+   - Update PostgreSQL storage class and size
 
-## ArgoCD Deployment
-
-See [docs/argocd-application-examples.yaml](docs/argocd-application-examples.yaml) for example ArgoCD Application manifests.
-
-## Documentation
-
-- [Complete Installation Guide](docs/complete-installation.md) - End-to-end walkthrough
-- [ArgoCD Application Examples](docs/argocd-application-examples.yaml) - Sample ArgoCD apps
-- [Operator README](operator/README.md) - Operator installation details
-- [PostgreSQL README](postgresql/README.md) - Database deployment guide
-- [Instance README](instance/README.md) - Instance configuration and deployment
-
-## Deployment Order (Sync Waves)
-
-When using ArgoCD, resources are deployed in this order:
-
-1. **Wave 1** - Namespace, PostgreSQL StatefulSet/Service, Database Secrets
-2. **Wave 2** - PostgreSQL initialization Job, Operator (OperatorGroup/Subscription)
-3. **Wave 3** - AutomationOrchestrator custom resource
+3. **Update ArgoCD application:**
+   - Point to your forked repository
+   - Update `source.repoURL` and `source.targetRevision`
 
 ## Support
 
-For issues related to:
-- **Automation Orchestrator product**: Contact Red Hat Support
-- **GitOps Catalog**: Open an issue at https://github.com/redhat-cop/gitops-catalog
-- **OpenShift**: Refer to Red Hat OpenShift documentation
-
-## License
-
-This GitOps Catalog entry follows the licensing of the Red Hat CoP GitOps Catalog project.
-
-## Contributing
-
-Contributions are welcome! Please follow the Red Hat CoP GitOps Catalog contribution guidelines.
+- **Product Support:** [Red Hat Customer Portal](https://access.redhat.com/support)
+- **GitOps Catalog:** [GitHub Issues](https://github.com/redhat-cop/gitops-catalog/issues)
+- **Documentation:** [Ansible Automation Platform Docs](https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/)
