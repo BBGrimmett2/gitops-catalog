@@ -21,7 +21,7 @@ spec:
   source:
     repoURL: https://github.com/BBGrimmett2/gitops-catalog.git
     targetRevision: automation-orchestrator
-    path: automation-orchestrator/instance/overlays/with-postgres
+    path: automation-orchestrator/instance/overlays/argocd-demo
   destination:
     server: https://kubernetes.default.svc
     namespace: ao-demo
