@@ -1,42 +1,50 @@
 # Automation Orchestrator for Ansible Automation Platform
 
-One-command deployment of Ansible Automation Platform's Automation Orchestrator using ArgoCD.
+Two-step deployment of Ansible Automation Platform's Automation Orchestrator using ArgoCD.
 
 ## Quick Start
 
-### Prerequisites
-
-**1. Grant ArgoCD permissions (required once per namespace):**
-
-```bash
-# Replace 'ao-demo' with your desired namespace
-oc adm policy add-role-to-user admin \
-  system:serviceaccount:openshift-gitops:openshift-gitops-argocd-application-controller \
-  -n ao-demo
-```
-
-**2. Verify permissions:**
-
-```bash
-# Should return "yes"
-oc auth can-i create secrets \
-  --as=system:serviceaccount:openshift-gitops:openshift-gitops-argocd-application-controller \
-  -n ao-demo
-```
-
-### Deploy
+### Step 1: Apply ArgoCD Application
 
 ```bash
 # Deploy Automation Orchestrator with PostgreSQL
 oc apply -f https://raw.githubusercontent.com/BBGrimmett2/gitops-catalog/automation-orchestrator/automation-orchestrator/application.yaml
 ```
 
-ArgoCD will automatically:
-1. Create the namespace
-2. Deploy PostgreSQL 15 with 3 databases
-3. Install the Automation Orchestrator operator
-4. Deploy all Automation Orchestrator components
-5. Create routes for UI access
+This creates the ArgoCD Application and the target namespace (`ao-demo` by default).
+
+### Step 2: Grant ArgoCD Permissions
+
+After the namespace is created, grant ArgoCD admin permissions:
+
+```bash
+# Grant permissions to ArgoCD service account
+oc adm policy add-role-to-user admin \
+  system:serviceaccount:openshift-gitops:openshift-gitops-argocd-application-controller \
+  -n ao-demo
+```
+
+**Why is this needed?** ArgoCD needs permissions to create Secrets, Services, StatefulSets, Jobs, and the AutomationOrchestrator custom resource in the namespace.
+
+**Verify permissions (optional):**
+
+```bash
+# Should return "yes" after granting
+oc auth can-i create secrets \
+  --as=system:serviceaccount:openshift-gitops:openshift-gitops-argocd-application-controller \
+  -n ao-demo
+```
+
+### Step 3: Wait for Automated Deployment
+
+ArgoCD automatically syncs and deploys (retries every ~30 seconds):
+
+1. PostgreSQL 15 with 3 databases
+2. Automation Orchestrator operator (via OLM)
+3. All Automation Orchestrator components
+4. Routes for UI access
+
+**Deployment time:** ~2 minutes from RBAC grant to READY
 
 ### Monitor Deployment
 
