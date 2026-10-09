@@ -8,6 +8,7 @@ kind: Kustomization
 resources:
   - ../../base
   - ../../../postgresql/base
+  - secrets.yaml
 
 patches:
   - target:
@@ -34,9 +35,6 @@ patches:
         path: /metadata/annotations
         value:
           argocd.argoproj.io/sync-wave: "2"
-
-resources:
-  - secrets.yaml
 
 # POC/Lab placeholder secrets - created as regular resources for predictable names
 # WARNING FOR PRODUCTION: Replace with secure secrets
