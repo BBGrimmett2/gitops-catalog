@@ -1,4 +1,16 @@
 ---
+# ArgoCD Application for Automation Orchestrator POC/Demo
+# Deploys to dedicated ao-demo namespace
+#
+# Prerequisites:
+# 1. Grant ArgoCD permissions to the namespace:
+#    oc adm policy add-role-to-user admin \
+#      system:serviceaccount:openshift-gitops:openshift-gitops-argocd-application-controller \
+#      -n ao-demo
+#
+# 2. Apply this application:
+#    oc apply -f automation-orchestrator-argocd-app.yaml
+
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
