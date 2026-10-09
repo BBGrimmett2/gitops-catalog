@@ -8,9 +8,10 @@ data:
     -- Automation Orchestrator Database Initialization
     -- POC/Lab placeholder password: 'RedHat123' - CHANGE FOR PRODUCTION!
 
-    -- Create users
-    CREATE USER orchestrator WITH PASSWORD 'RedHat123';
-    CREATE USER temporal WITH PASSWORD 'RedHat123';
+    -- Create users with necessary privileges
+    -- CREATEROLE and CREATEDB allow the user to manage extensions
+    CREATE USER orchestrator WITH PASSWORD 'RedHat123' CREATEROLE CREATEDB;
+    CREATE USER temporal WITH PASSWORD 'RedHat123' CREATEDB;
 
     -- Create databases with ownership
     CREATE DATABASE orchestrator OWNER orchestrator;
@@ -22,13 +23,9 @@ data:
     GRANT ALL PRIVILEGES ON DATABASE temporal TO temporal;
     GRANT ALL PRIVILEGES ON DATABASE temporal_visibility TO temporal;
 
-    -- Enable required extension
-    \c orchestrator
+    -- Connect as orchestrator to create extension (ensures ownership)
+    \c orchestrator orchestrator
     CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
-    -- Transfer extension ownership to orchestrator user
-    -- Required so orchestrator can run migrations that modify the extension
-    ALTER EXTENSION pgcrypto OWNER TO orchestrator;
 
     -- Verify setup
     \echo 'Verifying database creation...'
