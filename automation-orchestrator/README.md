@@ -81,8 +81,6 @@ oc get secret automation-orchestrator-initial-admin-password -n ao-demo \
   - Temporal Server
   - Redis Cache
 
-**Resources:** ~8 pods, 1 route, 2-3 GB memory, 1-2 CPU cores
-
 ## Default Credentials (POC/Demo)
 
 **PostgreSQL:**
